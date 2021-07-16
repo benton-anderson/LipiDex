@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="LipiDex">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/LipiDex.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
