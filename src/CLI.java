@@ -1,14 +1,16 @@
 import lib_gen.Adduct;
+import mzmine.MzPeakFinder;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
+import java.io.BufferedReader;
 import java.io.File;
 
-import java.lang.reflect.Array;
+import java.io.FileReader;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Callable;
 
 import compound_discoverer.CDPeakFinder;
@@ -24,45 +26,73 @@ public class CLI implements Callable<Integer> {
     //      Options have a name,
     //      positional parameters are usually the values that follow the options, but they may be mixed.
 
-    @Option(names = {"-a", "--aligned"}, description = "Filepath Compound Discoverer Aligned Peak Table (.csv)", required = true)
-    Path alignedTable;
+    @Option(names = {"-t", "--type"}, description = "Choose <CD> for Compound Discoverer or <MZ> for MZMine", required = true)
+    String CDorMZ;
 
-    @Option(names = {"-u", "--unaligned"}, description = "Compound Discoverer Unaligned Peak Table (.csv)", required = true)
-    Path unalignedTable;
+    @Option(names = {"-f", "--firsttable"}, description = "Filepath CD Aligned Table OR MZMine Positive Table", required = true)
+    Path firstTable;
 
-    @Option(names = {"-r", "--results"}, description = "input Results.csv files from Spectrum Searcher", required = true)
+    @Option(names = {"-s", "--secondtable"}, description = "Filepath CD Unaligned Table OR MZMine Negative Table")
+    Path secondTable;
+
+    @Option(names = {"-r", "--results"}, description = "Filepaths to Results.csv files from Spectrum Searcher", required = true)
     ArrayList<File> ssResultsFilepaths;
+
+//    @Option(names = {"--sep-pol-filt"}, description = "Boolean separate polarity filtering, default true")
+//    Boolean sepPol = true;
 
     @Override
     public Integer call() throws Exception {
 
         JProgressBar dummyProgressBar = new JProgressBar();
-        ArrayList<Integer> dummySamplePairNumbers = new ArrayList<>();
-        ArrayList<Adduct> dummyAdductsDB = new ArrayList<Adduct>();
+        ArrayList<Integer> dummySamplePairNumbers = new ArrayList<>();  // TODO: Add Sample Pair numbers param
+        ArrayList<Adduct> adductsDB = new ArrayList<Adduct>();          // TODO: Create parameter to add more adducts
+        populateAdductsDB("src/peak_finder/Possible_Adducts.csv", adductsDB);
+
         // the Default Adducts DB is located at src/peak_finder/Possible_Adducts.csv
         // the default Adducts DB is read using PeakFinderGUI.readAdducts(Filename)
-
-
 
         // Have to convert ssResultsFilepaths into the required "File" type
         // https://stackoverflow.com/questions/6903335/java-path-vs-file
         // File is older, Path is newer addition to Java
         // Path.toFile()
 
-        CDPeakFinder cliCDPeakFinder = new CDPeakFinder(
-                alignedTable.toString(),
-                unalignedTable.toString(),
-                ssResultsFilepaths,
-                2,
-                true,
-                2.0,
-                dummyProgressBar,
-                dummySamplePairNumbers,
-                dummyAdductsDB);
 
-        cliCDPeakFinder.runQuantitation(true, true, true);
+        if (CDorMZ=="CD") {
+            CDPeakFinder cliCDPeakFinder = new CDPeakFinder(
+                    firstTable.toString(),
+                    secondTable.toString(),
+                    ssResultsFilepaths,
+                    2,
+                    true,
+                    2.0,
+                    dummyProgressBar,
+                    dummySamplePairNumbers,
+                    adductsDB);
 
-        return 0;
+            cliCDPeakFinder.runQuantitation(true, true, true);  // TODO: Add filtering boolean Parameters
+
+            return 0;
+        }
+        else if (CDorMZ=="MZ"){
+            MzPeakFinder cliMZPeakFinder = new MzPeakFinder(
+                    firstTable.toString(),
+                    secondTable.toString(),
+                    ssResultsFilepaths,
+                    2,
+                    true,
+                    2.0,
+                    dummyProgressBar,
+                    dummySamplePairNumbers,
+                    adductsDB);
+
+            cliMZPeakFinder.runQuantitation(true, true, true);
+
+            return 0;
+        }
+        else {
+            return -1;
+        }
     }
 
     public static void main(String[] args) {
@@ -72,6 +102,52 @@ public class CLI implements Callable<Integer> {
 //        int exitCode = new CommandLine(my_CLI).execute(args);
         System.exit(exitCode);
     }
+
+    private static void populateAdductsDB(String filename, ArrayList<Adduct> adductsDB) throws IOException
+    {
+        String line = null;
+        String [] split = null;
+        String name;
+        String formula;
+        Boolean loss;
+        String polarity;
+        int charge;
+
+        //Create file buffer
+        File file = new File(filename);
+        BufferedReader reader = new BufferedReader(new FileReader(file));
+
+//        //Clear adducts DB
+//        adductsDB = new ArrayList<Adduct>();
+
+        //read line if not empty
+        while ((line = reader.readLine()) != null)
+        {
+            if (!line.contains("Name"))
+            {
+                split = line.split(",");
+
+                name = split[0];
+
+                formula = split[1];
+
+                if (split[2].equals("FALSE")) loss = false;
+                else {loss = true;}
+
+                polarity = split[3];
+                charge = Integer.valueOf(split[4]);
+
+                adductsDB.add(new Adduct(name, formula, loss, polarity, charge));
+            }
+        }
+
+        reader.close();
+    }
+
+
+
+
+
 }
 
 
