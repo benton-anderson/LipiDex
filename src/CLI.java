@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.concurrent.Callable;
 
@@ -38,6 +39,12 @@ public class CLI implements Callable<Integer> {
     @Option(names = {"-r", "--results"}, description = "Filepaths to Results.csv files from Spectrum Searcher", required = true)
     ArrayList<File> ssResultsFilepaths;
 
+    @Option(names = {"-p", "--results-files-prefix"}, description = "Results Filenames prefix (to prevent overlapping Final_Results.csv names")
+    String resultsFilesPrefix;
+
+    @Option(names = {"--path-to-results"}, description = "Folder where Results Files will be written")
+    String pathToResultsString;
+
 //    @Option(names = {"--sep-pol-filt"}, description = "Boolean separate polarity filtering, default true")
 //    Boolean sepPol = true;
 
@@ -57,8 +64,10 @@ public class CLI implements Callable<Integer> {
         // File is older, Path is newer addition to Java
         // Path.toFile()
 
+        Path pathToResults = Paths.get(pathToResultsString);
+        System.out.println(pathToResults.toString());
 
-        if (CDorMZ=="CD") {
+        if (CDorMZ.equals("CD")) {
             CDPeakFinder cliCDPeakFinder = new CDPeakFinder(
                     firstTable.toString(),
                     secondTable.toString(),
@@ -74,7 +83,7 @@ public class CLI implements Callable<Integer> {
 
             return 0;
         }
-        else if (CDorMZ=="MZ"){
+        else if (CDorMZ.equals("MZ")){
             MzPeakFinder cliMZPeakFinder = new MzPeakFinder(
                     firstTable.toString(),
                     secondTable.toString(),
@@ -84,7 +93,9 @@ public class CLI implements Callable<Integer> {
                     2.0,
                     dummyProgressBar,
                     dummySamplePairNumbers,
-                    adductsDB);
+                    adductsDB,
+                    resultsFilesPrefix,
+                    pathToResults);
 
             cliMZPeakFinder.runQuantitation(true, true, true);
 

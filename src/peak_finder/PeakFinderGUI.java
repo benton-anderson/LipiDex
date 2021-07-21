@@ -10,6 +10,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 
 import javax.swing.ButtonGroup;
@@ -75,6 +76,7 @@ public class PeakFinderGUI extends JInternalFrame {
 	public File lastDirectory = new File("C:");						//Last directory accessed
 	int progressInt = 0;											//Current progress
 	static ArrayList<Adduct> adductsDB = new ArrayList<Adduct>();	//ArrayList of all adducts from active lib
+	Path dummyPath;													//Feeding to the MzPeakFinder instantiator
 
 	//Launch Peak Finder
 	public static void main(JDesktopPane contentPane, JLabel label, ImageIcon onImage, ImageIcon offImage) {
@@ -663,8 +665,9 @@ public class PeakFinderGUI extends JInternalFrame {
 				//Run Quant
 				try
 				{
+
 					mzPeakFinder = new MzPeakFinder(firstFilePath.getText(),secondFilePath.getText(), idFiles, Integer.valueOf(String.valueOf(featureNumberSpinner.getValue()))
-							,rtfilteringbox.isEnabled(),Double.valueOf(String.valueOf(rtFilterSpinner.getValue())),progressBar, samplePairNumbers, adductsDB);
+							,rtfilteringbox.isEnabled(),Double.valueOf(String.valueOf(rtFilterSpinner.getValue())),progressBar, samplePairNumbers, adductsDB, "", dummyPath);
 					mzPeakFinder.runQuantitation(separatePolarities, chckbxUnidentifiedFeatureFiltering.isSelected(),
 							chckbxInsourceFragmentFiltering.isSelected());
 				}

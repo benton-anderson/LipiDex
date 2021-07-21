@@ -16,6 +16,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -59,11 +60,13 @@ public class MzPeakFinder
 	int progressInt = 0;																	//Progress for progress bar
 	int numFeatures = 0;																	//Total number of features loaded
 	static ArrayList<Adduct> adductsDB;														//ArrayList of all adducts from active lib
+	String resultsFilesPrefix;																//Filename prefix for results files
+	Path pathToResults;																		//Folder path to Results Files output
 
 	//Constructor
-	public MzPeakFinder(String posTable, String negTable, ArrayList<File> resultFiles, int minFeatureCount, 
-			boolean rtFilter, double rtFilterMult, JProgressBar progressBar, ArrayList<Integer> samplePairNumbers,
-			ArrayList<Adduct> adductsDB) throws CustomException
+	public MzPeakFinder(String posTable, String negTable, ArrayList<File> resultFiles, int minFeatureCount,
+						boolean rtFilter, double rtFilterMult, JProgressBar progressBar, ArrayList<Integer> samplePairNumbers,
+						ArrayList<Adduct> adductsDB, String resultsFilesPrefix, Path pathToResults) throws CustomException
 	{
 		this.progressBar = progressBar;
 		this.posTable = posTable;
@@ -74,6 +77,8 @@ public class MzPeakFinder
 		this.MINRTMULTIPLIER = rtFilterMult;
 		this.samplePairNumbers = samplePairNumbers;
 		MzPeakFinder.adductsDB = adductsDB;
+		this.resultsFilesPrefix = resultsFilesPrefix;
+		this.pathToResults = pathToResults;
 	}
 
 	//Update progress bar
@@ -156,7 +161,13 @@ public class MzPeakFinder
 		if (rtFilter) checkClassRTDist(MINRTMULTIPLIER);
 
 		//Write filtering reasons
-		writeFilterDB(new File(posTable).getParent()+"\\Unfiltered_Results.csv");
+		if (this.pathToResults != null && this.pathToResults.toFile().isDirectory()) {
+			System.out.println(this.pathToResults.toString() + "\\" + this.resultsFilesPrefix + "_Unfiltered_Results.csv");
+			writeFilterDB(this.pathToResults.toString() + "\\" + this.resultsFilesPrefix + "_Unfiltered_Results.csv");
+		}
+		else {
+			writeFilterDB(new File(posTable).getParent()+"\\Unfiltered_Results.csv");
+		}
 
 		//Calculate Statistics
 		calculateStatistics();
@@ -168,8 +179,15 @@ public class MzPeakFinder
 		mergePolarities();
 
 		//Write Results;
-		writeDB((new File(posTable).getParent())+"\\Final_Results.csv");
-		writeStats((new File(posTable).getParent())+"\\Sample_Information.csv");
+		if (this.pathToResults != null && this.pathToResults.toFile().isDirectory()) {
+			System.out.println(this.pathToResults.toString() + "\\" + this.resultsFilesPrefix + "_Final_Results.csv");
+			writeDB(this.pathToResults.toString() + "\\" + this.resultsFilesPrefix + "_Final_Results.csv");
+			writeStats(this.pathToResults.toString() + "\\" + this.resultsFilesPrefix + "_Sample_Information.csv");
+		}
+		else {
+			writeDB((new File(posTable).getParent())+"\\Final_Results.csv");
+			writeStats((new File(posTable).getParent())+"\\Sample_Information.csv");
+		}
 	}
 
 	//Method to link files when collected with separate polarities
