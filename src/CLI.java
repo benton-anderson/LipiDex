@@ -39,6 +39,10 @@ public class CLI implements Callable<Integer> {
         JProgressBar dummyProgressBar = new JProgressBar();
         ArrayList<Integer> dummySamplePairNumbers = new ArrayList<>();
         ArrayList<Adduct> dummyAdductsDB = new ArrayList<Adduct>();
+        // the Default Adducts DB is located at src/peak_finder/Possible_Adducts.csv
+        // the default Adducts DB is read using PeakFinderGUI.readAdducts(Filename)
+
+
 
         // Have to convert ssResultsFilepaths into the required "File" type
         // https://stackoverflow.com/questions/6903335/java-path-vs-file
@@ -61,7 +65,7 @@ public class CLI implements Callable<Integer> {
         return 0;
     }
 
-    static void main(String... args) {
+    public static void main(String[] args) {
         CLI my_CLI = new CLI();
         CommandLine my_CL = new CommandLine(my_CLI);
         int exitCode = my_CL.execute(args);
