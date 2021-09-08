@@ -219,7 +219,14 @@ public class CDPeakFinder extends Utilities
 		}
 	}
 
-	//Import Compound Discovere result tables
+
+	private void importCDPreParsedResults(String fileString, int minFeatureCount, boolean separatePolarities) throws IOException, CustomException
+	{
+		File file = new File(fileString);
+
+
+	}
+	//Import Compound Discoverer result tables
 	private void importCDResults(String fileString, int minFeatureCount, boolean separatePolarities) throws IOException, CustomException
 	{
 		String line = "";							//String for storing currently read line
@@ -253,23 +260,29 @@ public class CDPeakFinder extends Utilities
 					checkedCount ++;
 				}
 
-				//Parse header indeces
+				//Each of the "Compound" "Compounds per File" and "Features" rows at different levels of indentation
+				// has its own set of headers.
+				//Parse headers as long as less than 3 checked headers were found
 				if (line.contains("Checked") && checkedCount <= 3)
 				{
 					parseHeaders(checkedCount,line);
 				}
 
 				//Parse Samples
+				//Only the top row of headers contains "Name", so it's looking for column headers that have
+				// "Area: raw_file_filename.raw (F43)" in it, which then get parsed and put into
+				// samples, which is a list
 				if (line.contains("Name"))
 				{
 					samples = parseFiles(line,separatePolarities);
 				}
 
 				//import line if it does not contain header
+				// The rows with the furthest in-board indentation are Features
 				if (!line.contains("Checked") && !line.contains("Name") && !line.equals(""))
 				{
-					//Parse feature
-					if (line.substring(0, 2).equals(",,")) 
+					//Parse feature.
+					if (line.substring(0, 2).equals(",,"))
 						compoundTemp.addFeature(parseFeature(line),separatePolarities);
 
 					//Parse compound

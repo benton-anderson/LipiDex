@@ -1106,7 +1106,7 @@ public class MzPeakFinder
 			//Print header
 			pw.print("Retention Time (min),Quant Ion,Polarity,Area (max),Identification,Lipid Class,Features Found,");
 
-			//Print sample names
+			//Print sample names as column names
 			for (int i=0; i<compoundGroups.get(0).results.size(); i++)
 			{
 				if (compoundGroups.get(0).results.get(i).merged) pw.print(compoundGroups.get(0).results.get(i).mergedFileName);
