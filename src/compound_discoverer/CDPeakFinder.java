@@ -15,18 +15,10 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Collections;
+import java.util.*;
 
 import javax.swing.JLabel;
 import javax.swing.JProgressBar;
-
-import compound_discoverer.CDAreaResult;
-import compound_discoverer.CDCompound;
-import compound_discoverer.CDCompoundGroup;
-import compound_discoverer.CDFeature;
 
 import peak_finder.Utilities;
 
@@ -45,10 +37,13 @@ public class CDPeakFinder extends Utilities
 	public JLabel ProgressStatus = null;													//Status
 	static ArrayList<CDCompoundGroup> compoundGroups = new ArrayList<CDCompoundGroup>();	//Array of all compound groups
 	static ArrayList<Sample> samples = new ArrayList<Sample>();								//Array of all samples
-	static int[] cGIndexArray = new int[3];													//Array of CD CG header indeces							
+	static int[] cGIndexArray = new int[3];													//Array of CD CG header indeces
 	static int[] cIndexArray = new int[8];													//Array of CD C header indeces
 	static int[] fGIndexArray = new int[10];												//Array of CD feature header indeces
-	static int cdAreaStart = 99999;															//Area for result parsing
+	static HashMap<String, Integer> cGHeaderMap = new HashMap<String, Integer>();			//Map from csv file compound group header to row index
+	static HashMap<String, Integer> cHeaderMap = new HashMap<String, Integer>();			//Map from csv file compound header to row index
+	static HashMap<String, Integer> fHeaderMap = new HashMap<String, Integer>();			//Map from csv file feature header to row index
+	static int cdAreaHeadersStartIndex = -1;												//Area for result parsing
 	static ArrayList<Lipid> importedLipids = new ArrayList<Lipid>();						//Array of all imported lipid IDs
 	static ArrayList<Lipid> unassignedLipids = new ArrayList<Lipid>();						//Array of unassigned lipid IDs
 	static ArrayList<ArrayList<Integer>> cgIndexMap;										//Hash table for compound groupds
@@ -93,7 +88,9 @@ public class CDPeakFinder extends Utilities
 
 	//Run lipid quantitation
 	public void runQuantitation(boolean separatePolarities, 
-			boolean adductFiltering, boolean inSourceFiltering) throws IOException, CustomException
+								boolean adductFiltering,
+								boolean inSourceFiltering,
+								boolean useNewParsing) throws IOException, CustomException
 	{
 		//TODO:
 		compoundGroups.clear();
@@ -102,7 +99,15 @@ public class CDPeakFinder extends Utilities
 		unassignedLipids.clear(); 
 
 		//Import results from compound discoverer
-		importCDResults(csvFile,MINIDNUM, separatePolarities);
+		if (useNewParsing)
+		{
+			importCDPreParsedResults(csvFile, MINIDNUM, separatePolarities);
+		}
+		else
+		{
+			importCDResults(csvFile, MINIDNUM, separatePolarities);
+
+		}
 
 		//Sort all CG's by retention time
 		Collections.sort(compoundGroups);
@@ -164,66 +169,124 @@ public class CDPeakFinder extends Utilities
 		writeStats(new File(csvFile).getParent()+"\\Sample_Information.csv");
 	}
 
-	//Parse Compound Discoverer headers
-	private void parseHeaders(int checkedCount, String line)
-	{
-		String[] split = line.split(",");
-		ArrayList<String> cGArray = new ArrayList<String>(Arrays.asList("Molecular Weight", "RT [min]", "Area"));
-		ArrayList<String> cArray = new ArrayList<String>(Arrays.asList("Molecular Weight","RT [min]","FWHM [min]",
-				"Max. # MI","# Adducts","Area","Study File ID","Best Compound"));
-		ArrayList<String> fArray = new ArrayList<String>(Arrays.asList("Ion","Charge","Molecular Weight","m/z",
-				"RT [min]","FWHM [min]","# MI","Area","Parent Area [%]","Study File ID"));
-
-		//Find indeces for all compound group headers
-		if (checkedCount == 1)
-		{
-			for (int i=0; i<split.length; i++)
-			{
-				for (int j=0; j<cGArray.size(); j++)
-				{
-					if (split[i].contains(cGArray.get(j)) && !split[i].contains(":"))
-					{
-						cGIndexArray[j] = i;
-					}
-					if (split[i].contains(":") && i < cdAreaStart) cdAreaStart = i;
-				}
-			}
-		}
-		//Find indeces for all compound headers
-		else if (checkedCount == 2)
-		{
-			for (int i=0; i<split.length; i++)
-			{
-				for (int j=0; j<cArray.size(); j++)
-				{
-					if (split[i].equals(cArray.get(j)))
-					{
-						cIndexArray[j] = i;
-					}
-				}
-			}
-		}
-		//Find indeces for all feature headers
-		else
-		{
-			for (int i=0; i<split.length; i++)
-			{
-				for (int j=0; j<fArray.size(); j++)
-				{
-					if (split[i].equals(fArray.get(j)))
-					{
-						fGIndexArray[j] = i;
-					}
-				}
-			}
-		}
-	}
-
-
 	private void importCDPreParsedResults(String fileString, int minFeatureCount, boolean separatePolarities) throws IOException, CustomException
 	{
-		File file = new File(fileString);
+		/*
+		* Output from CD using scripting node with python script returns 1 table.
+		* First 3 rows give the column headers for each level (compound_group, compound, feature)
+		* Each row after that is labeled with the level, and nested in the same level order.
+		* Parser will read the first entry in each row for 'compound_group' or 'compound' or 'feature'.
+		* Then add row's info to each CompoundGroup/Compound/Feature object as needed.
+		*
+		* Overall logic of the original file parsing by Paul:
+		* 1. Find what kind of row it is based on indents and absence of header text
+		* 2. Add feature to compoundTemp, or add compound to compoundGroupTemp
+		* 3. Once the line-reading reaches a new compoundGroup level, it adds the compoundTemp
+		*    to the compoundGroups object, which is a list of compoundGroup objects that is used
+		*    throughout the class.
+		* */
 
+		String line = "";							//String for storing currently read line
+		CDCompoundGroup compoundGroupTemp = null;	//Temp compound group object
+		CDCompound compoundTemp = null;				//Temp compound object
+		int groupCount = 0;							//Number of compound groups
+		int compCount = 0;							//Number of compounds
+		int checkedCount = 0;						//Spreadsheet level
+
+		//Update Status
+		updateProgress(2,0,"% - Importing Peak Data");
+
+		//Create file buffer
+		File file = new File(fileString);
+		BufferedReader reader = new BufferedReader(new FileReader(file));
+
+		//Check if file exists
+		if (!file.exists())
+		{
+			reader.close();
+			throw new CustomException(fileString+" does not exist", null);
+		}
+
+		line = reader.readLine();
+
+		parseHeadersNew(1, line);                 // Parse headers at compound groups level
+		samples = parseFiles(line,separatePolarities); // Parse the File Names from header
+		parseHeadersNew(2, reader.readLine());    // Parse headers at compounds level
+		parseHeadersNew(3, reader.readLine());    // Parse headers at features level
+
+		//read line if not empty
+		while ((line = reader.readLine()) != null)
+		{
+			try
+			{
+				if (line.contains("feature_level"))
+				{
+					compoundTemp.addFeature(parseFeature(line), separatePolarities);
+				}
+
+				//Parse compound
+				// Compound corresponds to Compounds per File level
+				else if (line.contains("compound_level"))
+				{
+					if (compCount>0)
+					{
+						compoundGroupTemp.addCompound(compoundTemp);
+					}
+					compoundTemp = parseCompound(line);
+					compCount++;
+
+				}
+
+				//Parse compound group
+				else if (line.contains("compound_group_level"))
+				{
+					//Add in compound to compoundGroup
+					if (compCount>0)
+					{
+						//Update
+						compoundGroupTemp.addCompound(compoundTemp);
+						compCount = 0;
+					}
+					//Add previous compound if new group found
+					if (groupCount>0 && compoundGroupTemp.compounds.size() >= minFeatureCount)
+						compoundGroups.add(compoundGroupTemp);
+
+					//Parse Line
+					compoundGroupTemp = parseCG(line);
+					groupCount++;
+
+					//Parse area results
+					parseAreas(compoundGroupTemp, line);
+				}
+
+			}
+			catch (Exception e)
+			{
+				reader.close();
+				throw new CustomException("Error reading peak table, please check formatting", e);
+			}
+		}
+
+		reader.close();
+
+		//Add final compound group
+		compoundGroupTemp.addCompound(compoundTemp);
+		if (compoundGroupTemp.compounds.size() >= minFeatureCount)
+			compoundGroups.add(compoundGroupTemp);
+
+		//Calculate average FWHM and quant Ion and look for max Isotope number
+		for (int i=0; i<compoundGroups.size(); i++)
+		{
+
+			updateProgress(2,(int)(Double.valueOf(i+1)
+					/Double.valueOf(compoundGroups.size())*100.0),"% - Importing Peak Data");
+
+			compoundGroups.get(i).calcFWHM();
+			fwhmSum += compoundGroups.get(i).avgFWHM;
+			compoundGroups.get(i).findQuantIon();
+			compoundGroups.get(i).findMaxIsotopeNumber();
+		}
+		avgFWHM = fwhmSum/compoundGroups.size();
 
 	}
 	//Import Compound Discoverer result tables
@@ -279,13 +342,16 @@ public class CDPeakFinder extends Utilities
 
 				//import line if it does not contain header
 				// The rows with the furthest in-board indentation are Features
+
+				// If a line doesn't contain Checked, Name and it's not blank, then it's a data row, not a header row
 				if (!line.contains("Checked") && !line.contains("Name") && !line.equals(""))
 				{
-					//Parse feature.
+					//Parse feature, because it has two commas ",,"
 					if (line.substring(0, 2).equals(",,"))
 						compoundTemp.addFeature(parseFeature(line),separatePolarities);
 
 					//Parse compound
+					// Compound corresponds to Compounds per File level
 					else if(line.substring(0,1).equals(","))
 					{
 						if (compCount>0)
@@ -295,6 +361,7 @@ public class CDPeakFinder extends Utilities
 					}
 
 					//Parse compound group
+					// Compound Group corresponds to Compounds level
 					else
 					{
 						//Add in compound to compoundGroup
@@ -435,9 +502,233 @@ public class CDPeakFinder extends Utilities
 		reader.close();
 	}
 
+	private void parseHeadersNew(int level, String line)
+	{
+
+		ArrayList<String> cArray = new ArrayList<String>(Arrays.asList("Molecular Weight","RT [min]","FWHM [min]",
+				"Max. # MI","# Adducts","Area","Study File ID"));
+		ArrayList<String> fArray = new ArrayList<String>(Arrays.asList("Ion","Charge","Molecular Weight","m/z",
+				"RT [min]","FWHM [min]","# MI","Area","Parent Area [%]","Study File ID"));
+
+		String[] split = line.split(",");
+
+		//Find indexes for all compound group headers
+		if (level == 1)
+		{
+			for (int i=0; i<split.length; i++)
+			{
+				cGHeaderMap.put(split[i], i);
+
+				if (split[i].contains("Area: ") && cdAreaHeadersStartIndex == -1)
+				{
+					cdAreaHeadersStartIndex = i;
+				}
+			}
+		}
+
+		//Find indexes for all compound headers
+		else if (level == 2)
+		{
+
+			for (int i=0; i<split.length; i++)
+			{
+				cHeaderMap.put(split[i], i);
+			}
+		}
+		//Find indexes for all feature headers
+		else
+		{
+			for (int i=0; i<split.length; i++)
+			{
+				fHeaderMap.put(split[i], i);
+			}
+		}
+	}
+
+	//Parse Compound Discoverer headers
+	private void parseHeaders(int checkedCount, String line)
+	{
+		String[] split = line.split(",");
+		ArrayList<String> cGArray = new ArrayList<String>(Arrays.asList("Molecular Weight", "RT [min]", "Area"));
+		ArrayList<String> cArray = new ArrayList<String>(Arrays.asList("Molecular Weight","RT [min]","FWHM [min]",
+				"Max. # MI","# Adducts","Area","Study File ID"));
+		ArrayList<String> fArray = new ArrayList<String>(Arrays.asList("Ion","Charge","Molecular Weight","m/z",
+				"RT [min]","FWHM [min]","# MI","Area","Parent Area [%]","Study File ID"));
+
+		//Find indeces for all compound group headers
+		if (checkedCount == 1)
+		{
+			for (int i=0; i<split.length; i++)
+			{
+				for (int j=0; j<cGArray.size(); j++)
+				{
+					if (split[i].contains(cGArray.get(j)) && !split[i].contains(":"))
+					{
+						cGIndexArray[j] = i;
+					}
+					if (split[i].contains(":") && i < cdAreaHeadersStartIndex) cdAreaHeadersStartIndex = i;
+				}
+			}
+		}
+
+		//Find indeces for all compound headers
+		else if (checkedCount == 2)
+		{
+			for (int i=0; i<split.length; i++)
+			{
+				for (int j=0; j<cArray.size(); j++)
+				{
+					if (split[i].equals(cArray.get(j)))
+					{
+						cIndexArray[j] = i;
+					}
+				}
+			}
+		}
+		//Find indeces for all feature headers
+		else
+		{
+			for (int i=0; i<split.length; i++)
+			{
+				for (int j=0; j<fArray.size(); j++)
+				{
+					if (split[i].equals(fArray.get(j)))
+					{
+						fGIndexArray[j] = i;
+					}
+				}
+			}
+		}
+	}
+
+	//Return array of Sample object based on file header from compound discoverer results
+	private ArrayList<Sample> parseFiles(String line, boolean separatePolarities)
+	{
+		ArrayList<Sample> result = new ArrayList<Sample>();
+		String[] split;
+
+		//Split line
+		split = line.split(",");
+
+		//Add new samples
+		for (int i=0; i<split.length; i++)
+		{
+			if (split[i].contains("Area:"))
+			{
+				result.add(new Sample(split[i].substring(split[i].indexOf(": ")+2),-1,separatePolarities));
+			}
+		}
+		return result;
+	}
+
+	//Parse compound group line and return new compound group object
+	private CDCompoundGroup parseCG(String line)
+	{
+		CDCompoundGroup result;
+		String[] split;
+		ArrayList<String> cGArray = new ArrayList<String>(Arrays.asList("Molecular Weight", "RT [min]", "Area"));
+
+		//Split line
+		split = line.split(",");
+
+		//Parse line
+		result = new CDCompoundGroup(
+				Double.valueOf(split[cGHeaderMap.get("Molecular Weight")]),
+				Double.valueOf(split[cGHeaderMap.get("RT [min]")]),
+				Double.valueOf(split[cGHeaderMap.get("Area (Max.)")]));
+
+		return result;
+	}
+
+	//Parse all peak area results for each compound group and store in object
+	private void parseAreas(CDCompoundGroup temp, String line)
+	{
+		String[] split;
+		int j=0;
+
+		line = line.replace(",", ", ");
+		//Split line
+		split = line.split(",");
+
+		//For all area in CG line, add new AreaResult object
+		for (int i = cdAreaHeadersStartIndex; i<split.length; i++)
+		{
+			if (split[i].equals(" ") && j<samples.size())
+			{
+				temp.addResult(new CDAreaResult(samples.get(j), 0.0));
+				j++;
+			}
+			else if (j<samples.size())
+			{
+				temp.addResult(new CDAreaResult(samples.get(j), Double.valueOf(split[i])));
+				j++;
+			}
+		}
+	}
+
+	//Parse compound line and return new compound object
+	private CDCompound parseCompound(String line)
+	{
+		CDCompound result;
+		String[] split;
+
+		//Split line
+		split = line.split(",");
+
+		ArrayList<String> cArray = new ArrayList<String>(Arrays.asList("Molecular Weight","RT [min]","FWHM [min]",
+				"Max. # MI","# Adducts","Area","Study File ID"));
+
+		//Create new compound object
+		result = new CDCompound(
+				Double.valueOf(split[cHeaderMap.get("Molecular Weight")]),
+				Double.valueOf(split[cHeaderMap.get("RT [min]")]),
+				Double.valueOf(split[cHeaderMap.get("FWHM [min]")]),
+				Integer.valueOf(split[cHeaderMap.get("Max. # MI")]),
+				Integer.valueOf(split[cHeaderMap.get("# Adducts")]),
+				Double.valueOf(split[cHeaderMap.get("Area")]),
+				matchSample(split[cHeaderMap.get("Study File ID")]));
+
+		return result;
+	}
+
+	//Parse feature line and return a feature object
+	private CDFeature parseFeature(String line)
+	{
+		CDFeature result;
+		String[] split;
+		Double area;
+		int charge;
+
+		split = line.split(",");
+
+		//If area is blank, use a zero
+		if (split[fGIndexArray[7]].equals("")) 
+			area = 0.0;
+		else 
+			area =  Double.valueOf(split[fHeaderMap.get("Area")]);
+
+		ArrayList<String> fArray = new ArrayList<String>(Arrays.asList("Ion","Charge","Molecular Weight","m/z",
+				"RT [min]","FWHM [min]","# MI","Area","Parent Area [%]","Study File ID"));
+		
+		result = new CDFeature(
+				split[fHeaderMap.get("Ion")],
+				Integer.valueOf(split[fHeaderMap.get("Charge")]),
+				Double.valueOf(split[fHeaderMap.get("Molecular Weight")]),
+				Double.valueOf(split[fHeaderMap.get("m/z")]),
+				Double.valueOf(split[fHeaderMap.get("RT [min]")]),
+				Double.valueOf(split[fHeaderMap.get("FWHM [min]")]),
+				Integer.valueOf(split[fHeaderMap.get("# MI")]),
+				area,
+				Double.valueOf(split[fHeaderMap.get("Parent Area [%]")]),
+				samples.get(Integer.parseInt(split[fHeaderMap.get("Study File ID")]
+						.substring(split[fHeaderMap.get("Study File ID")].indexOf("F")+1))-1));
+
+		return result;
+	}
+
 	//Match unaligned features to aligned features
-	private void matchUnalignedFeatureToCompound(Double mass, Double retention, 
-			String polarity, Double area, String sample)
+	private void matchUnalignedFeatureToCompound(Double mass, Double retention,
+												 String polarity, Double area, String sample)
 	{
 		int minIndex;										//minimum hash map index
 		int maxIndex; 										//maximum hash map index
@@ -461,7 +752,7 @@ public class CDPeakFinder extends Utilities
 				cgIndex = cgIndexMap.get(j).get(k);
 
 				//Check for matching feature
-				if (Math.abs(compoundGroups.get(cgIndex).retention-retention)<2.0 
+				if (Math.abs(compoundGroups.get(cgIndex).retention-retention)<2.0
 						&& calcPPMDiff(mass, compoundGroups.get(cgIndex).quantIon)<MINPPMDIFF) //TODO: Add to mzmine
 				{
 					//If matching feature found, update actual RT value and break iteration to save time
@@ -472,22 +763,6 @@ public class CDPeakFinder extends Utilities
 				}
 			}
 		}
-	}
-
-	//Parse compound group line and return new compound group object
-	private CDCompoundGroup parseCG(String line)
-	{
-		CDCompoundGroup result;
-		String[] split;
-
-		//Split line
-		split = line.split(",");
-
-		//Parse line
-		result = new CDCompoundGroup(Double.valueOf(split[cGIndexArray[0]]),
-				Double.valueOf(split[cGIndexArray[1]]),Double.valueOf(split[cGIndexArray[2]]));
-
-		return result;
 	}
 
 	//Return matching Sample object based on file ID number from compound discoverer
@@ -503,43 +778,6 @@ public class CDPeakFinder extends Utilities
 		}
 
 		return null;
-	}
-
-	//Parse compound line and return new compound object
-	private CDCompound parseCompound(String line)
-	{
-		CDCompound result;
-		String[] split;
-
-		//Split line
-		split = line.split(",");
-
-		//Create new compound object
-		result = new CDCompound(Double.valueOf(split[cIndexArray[0]]),Double.valueOf(split[cIndexArray[1]]),
-				Double.valueOf(split[cIndexArray[2]]), Integer.valueOf(split[cIndexArray[3]]), Integer.valueOf(split[cIndexArray[4]]),
-				Double.valueOf(split[cIndexArray[5]]), matchSample(split[cIndexArray[6]]), Boolean.valueOf(split[cIndexArray[7]]));
-
-		return result;
-	}
-
-	//Return array of Sample object based on file header from compound discoverer results
-	private ArrayList<Sample> parseFiles(String line, boolean separatePolarities)
-	{
-		ArrayList<Sample> result = new ArrayList<Sample>();
-		String[] split;
-
-		//Split line
-		split = line.split(",");
-
-		//Add new samples
-		for (int i=0; i<split.length; i++)
-		{
-			if (split[i].contains("Area:"))
-			{
-				result.add(new Sample(split[i].substring(split[i].indexOf(": ")+2),-1,separatePolarities));
-			}
-		}
-		return result;
 	}
 
 	//Return the sample pair number for a files name based on user input
@@ -564,59 +802,6 @@ public class CDPeakFinder extends Utilities
 		for (int i=0; i<compoundGroups.size(); i++)
 		{
 			compoundGroups.get(i).mergePolarities();
-		}
-	}
-
-	//Parse feature line and return a feature object
-	private CDFeature parseFeature(String line)
-	{
-		CDFeature result;
-		String[] split;
-		Double area;
-		int charge;
-
-		split = line.split(",");
-
-		//If area is blank, use a zero
-		if (split[fGIndexArray[7]].equals("")) 
-			area = 0.0;
-		else 
-			area =  Double.valueOf(split[fGIndexArray[7]]);
-
-		
-		result = new CDFeature(split[fGIndexArray[0]], Integer.valueOf(split[fGIndexArray[1]]), 
-				Double.valueOf(split[fGIndexArray[2]]), Double.valueOf(split[fGIndexArray[3]]), 
-				Double.valueOf(split[fGIndexArray[4]]), Double.valueOf(split[fGIndexArray[5]]), 
-				Integer.valueOf(split[fGIndexArray[6]]), area,
-				Double.valueOf(split[fGIndexArray[8]]), samples.get(
-						Integer.valueOf(split[fGIndexArray[9]].substring(split[fGIndexArray[9]].indexOf("F")+1))-1));
-
-		return result;
-	}
-
-	//Parse all peak area results for each compound group and store in object
-	private void parseAreas(CDCompoundGroup temp, String line)
-	{
-		String[] split;
-		int j=0;
-
-		line = line.replace(",", ", ");
-		//Split line
-		split = line.split(",");
-
-		//For all area in CG line, add new AreaResult object
-		for (int i=cdAreaStart; i<split.length; i++)
-		{
-			if (split[i].equals(" ") && j<samples.size())
-			{
-				temp.addResult(new CDAreaResult(samples.get(j), 0.0));
-				j++;
-			}
-			else if (j<samples.size())
-			{
-				temp.addResult(new CDAreaResult(samples.get(j), Double.valueOf(split[i])));
-				j++;
-			}	
 		}
 	}
 

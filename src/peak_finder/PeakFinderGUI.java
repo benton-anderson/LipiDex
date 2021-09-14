@@ -60,9 +60,10 @@ public class PeakFinderGUI extends JInternalFrame {
 	private JTable ms2ResultTable;									//Tabel for all ms2 result files for analysis
 	public CDPeakFinder cdPeakFinder;								//Compound Discoverer Peak Finder
 	public MzPeakFinder mzPeakFinder;								//MzMine 2 Peak Finder
+	private JCheckBox chckbxUseNewParsing; 							//Toggle for using new pre-parsed aligned file from CD
 	private JButton alignedTableButton;								//Add button for first text box
 	private JButton unalignedTableButton;							//Add button for second text box
-	private JLabel secondBoxLabel;									//Label for second filepath box	
+	private JLabel secondBoxLabel;									//Label for second filepath box
 	private JLabel firstBoxLabel;									//Label for first filepath box
 	private JButton btnAdd;											//Add button
 	private JButton btnClear;										//Clear button
@@ -153,6 +154,13 @@ public class PeakFinderGUI extends JInternalFrame {
 		//Create list object
 		DefaultListModel<String> model = new DefaultListModel();
 		boolean rtFilter = true;
+
+
+		// Create Checkbox for using new file parser
+		chckbxUseNewParsing = new JCheckBox("Use New Parser");
+		chckbxUseNewParsing.setSelected(true);
+		chckbxUseNewParsing.setBounds(300, 30, 150, 24);
+		contentPane.add(chckbxUseNewParsing);
 
 		firstFilePath = new JTextField();
 		firstFilePath.setEnabled(false);
@@ -626,8 +634,10 @@ public class PeakFinderGUI extends JInternalFrame {
 							idFiles, Integer.valueOf(String.valueOf(featureNumberSpinner.getValue()))
 							,rtfilteringbox.isEnabled(),Double.valueOf(String.valueOf(
 									rtFilterSpinner.getValue())),progressBar, samplePairNumbers, adductsDB);
-					cdPeakFinder.runQuantitation(separatePolarities, chckbxUnidentifiedFeatureFiltering.isSelected(),
-							chckbxInsourceFragmentFiltering.isSelected());
+					cdPeakFinder.runQuantitation(separatePolarities,
+							chckbxUnidentifiedFeatureFiltering.isSelected(),
+							chckbxInsourceFragmentFiltering.isSelected(),
+							chckbxUseNewParsing.isSelected());
 				}
 				catch(CustomException e)
 				{

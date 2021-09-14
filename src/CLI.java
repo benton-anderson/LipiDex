@@ -79,7 +79,10 @@ public class CLI implements Callable<Integer> {
                     dummySamplePairNumbers,
                     adductsDB);
 
-            cliCDPeakFinder.runQuantitation(true, true, true);  // TODO: Add filtering boolean Parameters
+            cliCDPeakFinder.runQuantitation(true,
+                    true,
+                    true,
+                    true);  // TODO: Add filtering boolean Parameters
 
             return 0;
         }

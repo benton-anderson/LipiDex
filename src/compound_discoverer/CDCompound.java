@@ -20,9 +20,13 @@ public class CDCompound
 	boolean negativeFeature;					//True iff a negative polarity feature has been added
 
 	//Constructor
-	public CDCompound (Double mw, Double retention, Double fwhm, 
-			int maxMI, int numAdducts, Double area, Sample sample, 
-			boolean bestCompound)
+	public CDCompound (Double mw,
+					   Double retention,
+					   Double fwhm,
+					   int maxMI,
+					   int numAdducts,
+					   Double area,
+					   Sample sample)
 	{
 		this.mw = mw;
 		this.retention = retention;
@@ -31,7 +35,6 @@ public class CDCompound
 		this.numAdducts = numAdducts;
 		this.area = area;
 		this.sample = sample;
-		this.bestCompound = bestCompound;
 		features = new ArrayList<CDFeature>();
 		candidates = new ArrayList<CDLipidCandidate>();
 		positiveFeature = false;
