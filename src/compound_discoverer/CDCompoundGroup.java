@@ -140,8 +140,6 @@ public class CDCompoundGroup extends Utilities implements Comparable<CDCompoundG
 			summedPurities.get(i).purity = (int)Math.round(summedPurities.get(i).purity);
 		}
 
-
-
 		//Sory by purity
 		Collections.sort(summedPurities);
 
@@ -167,7 +165,7 @@ public class CDCompoundGroup extends Utilities implements Comparable<CDCompoundG
 			//If not unique, end method
 			if (summedPurities.get(i).name.equals(p.name))
 			{
-				summedPurities.get(i).purity += (int)Math.round(((p.purity*1.0)*weight));
+				summedPurities.get(i).purity += (int)Math.round((p.purity*1.0)*weight);
 				return;
 			}
 		}
@@ -403,8 +401,10 @@ public class CDCompoundGroup extends Utilities implements Comparable<CDCompoundG
 				if (compounds.get(i).features.get(j).realRetention != 0.0)
 				{
 					compounds.get(i).features.get(j).sample.featureRTDevArray.add
-					(new RTDeviation(compounds.get(i).features.get(j).realRetention - 
-							compounds.get(i).features.get(j).retention,compounds.get(i).features.get(j).retention, compounds.get(i).features.get(j).area));
+					(new RTDeviation(
+							compounds.get(i).features.get(j).realRetention - compounds.get(i).features.get(j).retention,
+							compounds.get(i).features.get(j).retention,
+							compounds.get(i).features.get(j).area));
 
 					//Sort rtDev array
 					Collections.sort(compounds.get(i).features.get(j).sample.featureRTDevArray);
@@ -522,7 +522,8 @@ public class CDCompoundGroup extends Utilities implements Comparable<CDCompoundG
 			for (int j=0; j<compounds.get(i).features.size(); j++)
 			{
 				//If quantIon not in quant Ion array, add it
-				if (isUniqueQuantIon(compounds.get(i).features.get(j).mass)) quantIonArray.add(compounds.get(i).features.get(j).mass);
+				if (isUniqueQuantIon(compounds.get(i).features.get(j).mass))
+					quantIonArray.add(compounds.get(i).features.get(j).mass);
 
 				//Find max area
 				if (compounds.get(i).features.get(j).area > maxArea)

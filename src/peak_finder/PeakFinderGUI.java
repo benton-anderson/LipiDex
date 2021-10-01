@@ -630,11 +630,19 @@ public class PeakFinderGUI extends JInternalFrame {
 				//Run Quant
 				try
 				{
-					cdPeakFinder = new CDPeakFinder(firstFilePath.getText(),secondFilePath.getText(), 
-							idFiles, Integer.valueOf(String.valueOf(featureNumberSpinner.getValue()))
-							,rtfilteringbox.isEnabled(),Double.valueOf(String.valueOf(
-									rtFilterSpinner.getValue())),progressBar, samplePairNumbers, adductsDB);
-					cdPeakFinder.runQuantitation(separatePolarities,
+					cdPeakFinder = new CDPeakFinder(
+							firstFilePath.getText(),
+							secondFilePath.getText(),
+							idFiles,
+							Integer.valueOf(String.valueOf(featureNumberSpinner.getValue())),
+							rtfilteringbox.isEnabled(),
+							Double.valueOf(String.valueOf(rtFilterSpinner.getValue())),
+							progressBar,
+							samplePairNumbers,
+							adductsDB);
+
+					cdPeakFinder.runQuantitation(
+							separatePolarities,
 							chckbxUnidentifiedFeatureFiltering.isSelected(),
 							chckbxInsourceFragmentFiltering.isSelected(),
 							chckbxUseNewParsing.isSelected());

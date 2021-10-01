@@ -30,10 +30,18 @@ public class Lipid extends Utilities implements Comparable<Lipid>
 
 
 	//Constructor
-	public Lipid(Double retention, Double precursor, Sample sample, Double dotProduct,
-			Double revDotProduct, String lipidString, Double libPrecursor, int purity,
-			boolean preferredPolarity, boolean isLipiDex, ArrayList<PurityResult> purityArray,
-			ArrayList<Double> fragmentMasses)
+	public Lipid(Double retention,
+				 Double precursor,
+				 Sample sample,
+				 Double dotProduct,
+				 Double revDotProduct,
+				 String lipidString,
+				 Double libPrecursor,
+				 int purity,
+				 boolean preferredPolarity,
+				 boolean isLipiDex,
+				 ArrayList<PurityResult> purityArray,
+				 ArrayList<Double> fragmentMasses)
 	{
 		//Initialize
 		fattyAcids = new ArrayList<String>();

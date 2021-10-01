@@ -52,9 +52,13 @@ public class SpectrumSearcher
 	static int progressInt = 0;
 
 	//Creates a new instance of SpectrumSearcher
-	public SpectrumSearcher(ArrayList <File> lipidLibs, ArrayList <String> mgfFiles, 
-			ArrayList <String> mzxmlFile, JProgressBar progressBar, Double ms1Tol, 
-			Double ms2Tol, int maxResults, Double minMassCutoff)
+	public SpectrumSearcher(ArrayList<File> lipidLibs,
+							ArrayList<String> mgfFiles,
+							ArrayList <String> mzxmlFile,
+							JProgressBar progressBar,
+							Double ms1Tol,
+							Double ms2Tol, int maxResults,
+							Double minMassCutoff)
 	{
 		//Update class fields
 		this.minMS2Mass = minMassCutoff;

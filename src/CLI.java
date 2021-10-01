@@ -4,11 +4,8 @@ import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
 
-import java.io.BufferedReader;
-import java.io.File;
+import java.io.*;
 
-import java.io.FileReader;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -19,34 +16,45 @@ import compound_discoverer.CDPeakFinder;
 import javax.swing.JProgressBar;
 
 
-@Command(name = "LipiDex CLI App", mixinStandardHelpOptions = true, version = "1.0",
-        description = "Prints the checksum (MD5 by default) of a file to STDOUT.")
+@Command(name = "LipiDex CLI App", mixinStandardHelpOptions = true, version = "0.1.0",
+        description = "Command Line Interface for LipiDex")
 public class CLI implements Callable<Integer> {
 
     // Command line arguments can be separated into options and positional parameters:
     //      Options have a name,
     //      positional parameters are usually the values that follow the options, but they may be mixed.
 
-    @Option(names = {"-t", "--type"}, description = "Choose <CD> for Compound Discoverer or <MZ> for MZMine", required = true)
+    @Option(names = {"-t", "--type"},
+            description = "Choose <CD> for Compound Discoverer or <MZ> for MZMine", required = true)
     String CDorMZ;
 
-    @Option(names = {"-f", "--firsttable"}, description = "Filepath CD Aligned Table OR MZMine Positive Table", required = true)
+    @Option(names = {"-f", "--firsttable"},
+            description = "Filepath CD Aligned Table OR MZMine Positive Table", required = true)
     Path firstTable;
 
-    @Option(names = {"-s", "--secondtable"}, description = "Filepath CD Unaligned Table OR MZMine Negative Table")
+    @Option(names = {"-s", "--secondtable"},
+            description = "Filepath CD Unaligned Table OR MZMine Negative Table")
     Path secondTable;
 
-    @Option(names = {"-r", "--results"}, description = "Filepaths to Results.csv files from Spectrum Searcher", required = true)
+    @Option(names = {"-r", "--results"},
+            description = "Filepaths to Results.csv files from Spectrum Searcher", required = true)
     ArrayList<File> ssResultsFilepaths;
 
-    @Option(names = {"-p", "--results-files-prefix"}, description = "Results Filenames prefix (to prevent overlapping Final_Results.csv names")
+    @Option(names = {"-p", "--results-files-prefix"},
+            description = "Results Filenames prefix (to prevent overlapping Final_Results.csv names")
     String resultsFilesPrefix;
 
-    @Option(names = {"--path-to-results"}, description = "Folder where Results Files will be written")
+    @Option(names = {"--path-to-results"},
+            description = "Folder where Results Files will be written")
     String pathToResultsString;
 
-//    @Option(names = {"--sep-pol-filt"}, description = "Boolean separate polarity filtering, default true")
+//    @Option(names = {"--sep-pol-filt"},
+//    description = "Boolean separate polarity filtering, default true")
 //    Boolean sepPol = true;
+
+    @Option(names = {"--use-new-parser"},
+            description = "true/false to use scripting node automatic parser")
+    Boolean useNewParser;
 
     @Override
     public Integer call() throws Exception {
@@ -58,11 +66,6 @@ public class CLI implements Callable<Integer> {
 
         // the Default Adducts DB is located at src/peak_finder/Possible_Adducts.csv
         // the default Adducts DB is read using PeakFinderGUI.readAdducts(Filename)
-
-        // Have to convert ssResultsFilepaths into the required "File" type
-        // https://stackoverflow.com/questions/6903335/java-path-vs-file
-        // File is older, Path is newer addition to Java
-        // Path.toFile()
 
         Path pathToResults = Paths.get(pathToResultsString);
         System.out.println(pathToResults.toString());
@@ -128,8 +131,15 @@ public class CLI implements Callable<Integer> {
         int charge;
 
         //Create file buffer
-        File file = new File(filename);
-        BufferedReader reader = new BufferedReader(new FileReader(file));
+//        File file = new File(filename);
+        InputStream stream = CLI.class.getResourceAsStream("peak_finder/Possible_Adducts.csv");
+        BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+
+//        File streamFile = new File(getClass().getResource(filename).toURI());
+
+//        FileInputStream inputStream = new FileInputStream(new File(getClass().getResource(filename).toURI()));
+
+//        BufferedReader streamReader = new BufferedReader(stream);
 
 //        //Clear adducts DB
 //        adductsDB = new ArrayList<Adduct>();
@@ -154,14 +164,8 @@ public class CLI implements Callable<Integer> {
                 adductsDB.add(new Adduct(name, formula, loss, polarity, charge));
             }
         }
-
         reader.close();
     }
-
-
-
-
-
 }
 
 

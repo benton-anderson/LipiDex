@@ -85,17 +85,19 @@ public class CDLipidCandidate extends Utilities implements Comparable<CDLipidCan
 		int result = 0;
 
 		//Negative polarity given priority
-		if (identifications.get(0).preferredPolarity 
-				&& !lc.identifications.get(0).preferredPolarity) return -1;
-		else if (!identifications.get(0).preferredPolarity 
-				&& lc.identifications.get(0).preferredPolarity) return 1;
+		if (identifications.get(0).preferredPolarity && !lc.identifications.get(0).preferredPolarity)
+			return -1;
+		else if (!identifications.get(0).preferredPolarity && lc.identifications.get(0).preferredPolarity)
+			return 1;
 
 		//If polarity is the same, sort by dot product
 		else if (identifications.get(0).polarity.equals(lc.identifications.get(0).polarity))
 		{
 			//If polarity is the same, sort by count
-			if (count>lc.count) return -1;
-			else if (count<lc.count) return 1;
+			if (count>lc.count)
+				return -1;
+			else if (count<lc.count)
+				return 1;
 		}
 
 		return result;

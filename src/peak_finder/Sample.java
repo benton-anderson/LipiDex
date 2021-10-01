@@ -75,7 +75,7 @@ public class Sample
 			x[i] = featureRTDevArray.get(i).retention;
 			y[i] = featureRTDevArray.get(i).deviation;
 		}
-		LoessInterpolator loessInterpolator=new LoessInterpolator(0.1, 1);
+		LoessInterpolator loessInterpolator = new LoessInterpolator(0.1, 1);
 		try
 		{
 			double[] y2 = loessInterpolator.smooth(x, y);

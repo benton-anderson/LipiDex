@@ -16,19 +16,22 @@ public class Utilities
 	public static Double MINFAPURITY = 75.0;			//Minimum fatty acid purity
 	public static Integer MINIDNUM = 1;					//Minimum features associated to a CG to retain
 
-	public static ArrayList<Double> adducts = new ArrayList<Double>
-	(Arrays.asList(-59.013,1.00727,-1.00727,22.9892,18.0338));								//Array of common adduct masses for dimer search
+	public static ArrayList<Double> adducts = new ArrayList<Double>(Arrays.asList(-59.013,1.00727,-1.00727,22.9892,18.0338));//Array of common adduct masses for dimer search
+
 	public Double[] masses = {1.007825035,2.014101779,7.016003,11.0093055,12.0,
 			13.00335483,14.003074,15.00010897,15.99491463,17.9991603,18.99840322,
 			22.9897677,23.9850423,30.973762,31.9720707,34.96885272,38.9637074,39.9625906,
 			51.9405098,54.9380471,55.9349393,57.9353462,58.9331976,62.9295989,63.9291448,
 			74.9215942,78.9183361,79.9165196,97.9054073,105.903478,106.905092,113.903357,
-			126.904473,196.966543,201.970617};												//Array of element accurate masses	
+			126.904473,196.966543,201.970617};
+	//Array of element accurate masses
 	public static String[] elementsArray = {"H","Xa","Li","B","C","Xb","N","Xc","O",
 		"Xd","F","Na","Mg","P","S","Cl","K","Ca","Cr","Mn","Fe","Ni","Co","Cu",
-		"Zn","As","Br","Se","Mo","Pd","Ag","Cd","I","Au","Hg"};							//Array of allowed elements
+		"Zn","As","Br","Se","Mo","Pd","Ag","Cd","I","Au","Hg"};
+	//Array of allowed elements
 	public static String[][] heavyElementArray = {{"(2H)","Xa"},{"(13C)","Xb"},				//Array of heavy element names
 		{"(15N)","Xc"},{"(18O)","Xd"}};
+
 	public static final Double MASSOFELECTRON = 0.00054858026;								//Mass of electron
 
 	//Calculates mass difference in ppm
